@@ -1,0 +1,23 @@
+﻿<Page
+    x:Class="InstaMonitor.RefreshWebView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:InstaMonitor"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Loaded="Page_Loaded" Unloaded="Page_Unloaded">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition/>
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="Refresh by WebView" FontSize="24" HorizontalAlignment="Center" />
+        <WebView Grid.Row="1" Name="uiWebView" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"  />
+        <!--<WebView2 Grid.Row="1" Name="uiWebView" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"  /> -->
+        <TextBlock Grid.Row="2" Text="Zaloguj, i naciśnij button: " VerticalAlignment="Center" Name="uiMsg"/>
+        <Button Grid.Row="2" Name="uiStart" HorizontalAlignment="Right"  VerticalAlignment="Center" Content="Start!"/>
+    </Grid>
+</Page>
