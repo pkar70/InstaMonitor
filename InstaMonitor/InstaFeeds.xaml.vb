@@ -1,56 +1,36 @@
 ﻿
+Imports vb14 = Vblib.pkarlibmodule14
+
+
 Public NotInheritable Class InstaFeeds
     Inherits Page
 
-    Dim _kanaly As ObservableCollection(Of LocalChannel)
+    Dim _kanaly As ObservableCollection(Of Vblib.LocalChannel)
     Dim _oFold As Windows.Storage.StorageFolder = Windows.Storage.ApplicationData.Current.LocalFolder
-
-    'Private Sub ProgresywnyRing(sStart As Boolean)
-    '    If sStart Then
-    '        Dim dVal As Double
-    '        dVal = (Math.Min(uiGrid.ActualHeight, uiGrid.ActualWidth)) / 2
-    '        uiProcesuje.Width = dVal
-    '        uiProcesuje.Height = dVal
-
-    '        uiProcesuje.Visibility = Visibility.Visible
-    '        uiProcesuje.IsActive = True
-    '    Else
-    '        uiProcesuje.IsActive = False
-    '        uiProcesuje.Visibility = Visibility.Collapsed
-    '    End If
-    'End Sub
-
 
 
     Private Async Sub Page_Loaded(sender As Object, e As RoutedEventArgs)
-        GetAppVers(uiVers)
-        ProgRingInit(True, False)
+        Me.ShowAppVers()
+        Me.ProgRingInit(True, False)
 
         Dim sTxt As String = Await Windows.Storage.ApplicationData.Current.LocalFolder.ReadAllTextFromFileAsync("channels.json")
 
         If String.IsNullOrEmpty(sTxt) Then
-            _kanaly = New ObservableCollection(Of LocalChannel)
+            _kanaly = New ObservableCollection(Of Vblib.LocalChannel)
         Else
-            _kanaly = Newtonsoft.Json.JsonConvert.DeserializeObject(sTxt, GetType(ObservableCollection(Of LocalChannel)))
+            _kanaly = Newtonsoft.Json.JsonConvert.DeserializeObject(sTxt, GetType(ObservableCollection(Of Vblib.LocalChannel)))
         End If
 
-        'Dim oFile As Windows.Storage.StorageFile = Await _oFold.TryGetItemAsync("channels.json")
-        'If oFile Is Nothing Then
-        '    _kanaly = New ObservableCollection(Of LocalChannel)
-        'Else
-        '    Dim sTxt As String = File.ReadAllText(oFile.Path)
-        '    _kanaly = Newtonsoft.Json.JsonConvert.DeserializeObject(sTxt, GetType(ObservableCollection(Of LocalChannel)))
-        'End If
         uiListItems.ItemsSource = From c In _kanaly Order By c.sChannel
 
-        GetSettingsString(uiUserName, "uiUserName", App.gmDefaultLoginName)
-        GetSettingsString(uiPassword, "uiPassword")
+        uiUserName.GetSettingsString("uiUserName", Vblib.App.gmDefaultLoginName)
+        uiPassword.GetSettingsString()
 
     End Sub
 
     Private Async Sub uiSave_Click(sender As Object, e As RoutedEventArgs)
         If _kanaly.Count < 1 Then
-            If Not Await DialogBoxYNAsync("Pusta lista! Zapisać ją?") Then Me.Frame.GoBack()
+            If Not Await vb14.DialogBoxYNAsync("Pusta lista! Zapisać ją?") Then Me.Frame.GoBack()
         End If
 
         'Await SaveChannelsAsync() - nie moze tak byc, bo tu mamy lokalną listę (kopię ze zmianami)
@@ -66,98 +46,40 @@ Public NotInheritable Class InstaFeeds
 
         Await oFold.WriteAllTextToFileAsync("channels.json", sTxt, Windows.Storage.CreationCollisionOption.ReplaceExisting)
 
-        Me.Frame.GoBack()
+        Me.GoBack()
     End Sub
 
-    Private Async Function AddChannelMain(sChannel As String, oTB As TextBlock) As Task(Of Boolean)
+    Private Async Function AddChannelMain(sChannel As String) As Task(Of Boolean)
 
-        ProgRingShow(True)
+        Me.ProgRingShow(True)
 
-        Dim sRetMsg As String = Await TryAddChannelAsync(sChannel, oTB)
+        ' Dim sRetMsg As String = Await App.gInstaModule.TryAddChannelAsync(sChannel, Nothing)
+        Dim sRetMsg As String = Await TryAddChannelAsync(sChannel, Nothing)
         Dim bRetOk As Boolean = sRetMsg.StartsWith("OK")
 
-        If Not bRetOk Then Await DialogBoxAsync(sRetMsg)
+        If Not bRetOk Then Await vb14.DialogBoxAsync(sRetMsg)
 
-        ProgRingShow(False)
+        Me.ProgRingShow(False)
 
         Return bRetOk
 
-        'For Each oItem As LocalChannel In _kanaly
-        '    If oItem.sChannel = sChannel Then
-        '        DialogBox("taki kanał już istnieje!")
-        '        Return True
-        '    End If
-        'Next
-
-        'Dim oJSON As JSONinstagram = Await ReadInstagramData(sChannel, True)
-
-        'If oJSON Is Nothing Then
-        '    Await DialogBoxAsync("Nie ma takiego kanału, albo błąd danych" & vbCrLf & sChannel)
-        '    Return False
-        'End If
-
-        'Dim user As JSONinstaUser = oJSON.entry_data?.ProfilePage?.ElementAt(0)?.graphql?.user
-        'If user Is Nothing Then
-        '    Await DialogBoxAsync("ProfilePage jest empty, pewnie konieczny login" & vbCrLf & sChannel)
-        '    Return False
-        'End If
-
-        '' mamy więc dane kanału, dodajemy do listy
-        'Await InstaModule.AddChannelMain(sChannel, user)
-
-        'Return True
     End Function
 
     Private Async Sub uiAdd_Click(sender As Object, e As RoutedEventArgs)
-        Dim sChannel As String = Await DialogBoxInputDirectAsync("Podaj nazwę kanału:")
+        Dim sChannel As String = Await vb14.DialogBoxInputDirectAsync("Podaj nazwę kanału:")
         If sChannel = "" Then Return
 
-        Await AddChannelMain(sChannel, Nothing)
+        Await AddChannelMain(sChannel)
     End Sub
 
     Private Sub uiDelChannel_Click(sender As Object, e As RoutedEventArgs)
 
     End Sub
 
-#If False Then ' tego juz nie ma , było w poprzedniej wersji gdy w ClipBoard była lista kanałów. Teraz to robi się via RemoteSystem
-    ' tego już nie ma, było w poprzedniej wersji gdy w ClipBoard była lista kanałów. Teraz to robi się via RemoteSystem
-    '
-    'Private Async Sub uiFromClip_Click(sender As Object, e As RoutedEventArgs)
-    '    Dim sClip As String = Await pkar.ClipGetAsync
-    '    If String.IsNullOrEmpty(sClip) Then
-    '        DialogBox("Pusty clipboard?")
-    '        Return
-    '    End If
-
-    '    Dim aArr As String() = sClip.Split(vbCrLf)
-
-    '    uiProgBar.Minimum = 0
-    '    uiProgBar.Value = 0
-    '    uiProgBar.Maximum = aArr.Count
-    '    uiProgBar.Visibility = Visibility.Visible
-
-
-    '    For Each sAdd As String In aArr
-    '        If sAdd.Length > 4 Then
-
-    '            If Not Await AddChannelMain(sAdd.Trim) Then
-    '                Await DialogBoxAsync("Skipping next...")
-    '                uiProgBar.Visibility = Visibility.Collapsed
-    '                Return
-    '            End If
-    '        End If
-
-    '        uiProgBar.Value += 1
-
-    '    Next
-    '    uiProgBar.Visibility = Visibility.Collapsed
-
-    'End Sub
-#End If
 
 #Region "recovering utracony plik kanałów"
 
-    Private Async Function RecoverChannels(oFoldRoot As Windows.Storage.StorageFolder, lDirNames As List(Of String)) As Task(Of ObservableCollection(Of LocalChannel))
+    Private Async Function RecoverChannels(sFoldRoot As Windows.Storage.StorageFolder, lDirNames As List(Of String)) As Task(Of ObservableCollection(Of Vblib.LocalChannel))
 
         ' na wejsciu ma liste podkatalogów
         ' ma skorzystać z plików:
@@ -172,23 +94,29 @@ Public NotInheritable Class InstaFeeds
         ' pictureData.json
         ' zeby wyciagnac [{"sFileName":"103705063_863973984093905_3131773345113521040_n.jpg" jako lastId
 
-        Dim kanaly = New ObservableCollection(Of LocalChannel)
+        Dim kanaly = New ObservableCollection(Of Vblib.LocalChannel)
 
         For Each sDir As String In lDirNames
             If sDir.Length < 3 Then Continue For
-            Dim oFold As Windows.Storage.StorageFolder = Await oFoldRoot.TryGetItemAsync(sDir)
-            If oFold Is Nothing Then
-                Await DialogBoxAsync("Folder '" & sDir & "' cannot be opened? Skipping...")
+            ' Dim sFold As String = IO.Path.Combine(sFoldRoot, sDir)
+            Dim sFold As Windows.Storage.StorageFolder = Await sFoldRoot.TryGetItemAsync(sDir)
+            ' If Not IO.Directory.Exists(sFold) Then
+            If sFold Is Nothing Then
+                Await vb14.DialogBoxAsync("Folder '" & sDir & "' cannot be opened? Skipping...")
                 Continue For
             End If
 
-            Dim sText As String = Await oFold.ReadAllTextFromFileAsync("userinfo.txt")
+            ' Dim sFile As String = IO.Path.Combine(sFold, "userinfo.txt")
+            Dim sFile As Windows.Storage.StorageFile = Await sFold.TryGetItemAsync("userinfo.txt")
+            Dim sText As String = ""
+            ' If IO.File.Exists(sFile) Then sText = IO.File.ReadAllText(sFile)
+            If sFile IsNot Nothing Then sText = Await sFile.ReadAllTextAsync
             If String.IsNullOrEmpty(sText) Then
-                Await DialogBoxAsync("Folder '" & sDir & "', cannot open userinfo.txt? Skipping...")
+                Await vb14.DialogBoxAsync("Folder '" & sDir & "', cannot open userinfo.txt? Skipping...")
                 Continue For
             End If
 
-            Dim oItem As LocalChannel = New LocalChannel
+            Dim oItem As New Vblib.LocalChannel
             oItem.bEnabled = True
             oItem.sDirName = sDir
 
@@ -215,7 +143,7 @@ Public NotInheritable Class InstaFeeds
 
 
     Private Async Function RecoverUsingGetFolders(oFoldRoot As Windows.Storage.StorageFolder) As Task(Of List(Of String))
-        Dim kanaly = New ObservableCollection(Of LocalChannel)
+        Dim kanaly As New ObservableCollection(Of Vblib.LocalChannel)
 
         Dim sError As String = ""
         Dim lDirNames As List(Of String) = New List(Of String)
@@ -229,7 +157,7 @@ Public NotInheritable Class InstaFeeds
         End Try
 
         If Not String.IsNullOrEmpty(sError) Then
-            Await DialogBoxAsync(sError)
+            Await vb14.DialogBoxAsync(sError)
             Return Nothing
         End If
 
@@ -238,7 +166,7 @@ Public NotInheritable Class InstaFeeds
     End Function
 
     Private Async Function RecoverUsingDirectory(oFoldRoot As Windows.Storage.StorageFolder) As Task(Of List(Of String))
-        Dim kanaly = New ObservableCollection(Of LocalChannel)
+        Dim kanaly As New ObservableCollection(Of Vblib.LocalChannel)
 
         Dim sError As String = ""
         Dim lDirNames As List(Of String) = New List(Of String)
@@ -252,7 +180,7 @@ Public NotInheritable Class InstaFeeds
         End Try
 
         If Not String.IsNullOrEmpty(sError) Then
-            Await DialogBoxAsync(sError)
+            Await vb14.DialogBoxAsync(sError)
             Return Nothing
         End If
 
@@ -261,14 +189,15 @@ Public NotInheritable Class InstaFeeds
     End Function
 
     Private Async Function RecoverUsingCmdLine(oFoldRoot As Windows.Storage.StorageFolder) As Task(Of List(Of String))
-        Dim kanaly = New ObservableCollection(Of LocalChannel)
+        Dim kanaly As New ObservableCollection(Of Vblib.LocalChannel)
 
-        ClipPut("dir /b /a:d > dirki.txt")
-        Await DialogBoxAsync("za chwilę zrób cmdline z clipboard")
+        vb14.ClipPut("dir /b /a:d > dirki.txt")
+        Await vb14.DialogBoxAsync("za chwilę zrób cmdline z clipboard")
 
-        Windows.System.Launcher.LaunchFolderAsync(oFoldRoot)
+        ' Dim oFoldRoot As Windows.Storage.StorageFolder = Await Windows.Storage.StorageFolder.GetFolderFromPathAsync(sFoldRoot)
+        oFoldRoot.OpenExplorer()
 
-        Await DialogBoxAsync("naciśnij po wykonaniu komendy (gdy będzie plik - indeks")
+        Await vb14.DialogBoxAsync("naciśnij po wykonaniu komendy (gdy będzie plik - indeks")
 
         Dim sIndeks As String = Await oFoldRoot.ReadAllTextFromFileAsync("dirki.txt")
         If String.IsNullOrEmpty(sIndeks) Then Return Nothing
@@ -285,7 +214,7 @@ Public NotInheritable Class InstaFeeds
         Return lDirNames
     End Function
 
-    Private Async Function TryRecoverAnyMethod(oFoldRoot As Windows.Storage.StorageFolder) As Task(Of ObservableCollection(Of LocalChannel))
+    Private Async Function TryRecoverAnyMethod(sFoldRoot As Windows.Storage.StorageFolder) As Task(Of ObservableCollection(Of Vblib.LocalChannel))
 
         Dim lDirNames As List(Of String) = Nothing
 
@@ -296,32 +225,34 @@ Public NotInheritable Class InstaFeeds
         ' If lDirNames Is Nothing Then lDirNames = Await RecoverUsingDirectory(oFoldRoot)
 
         ' odtworzenie uzywajac dir/b
-        If lDirNames Is Nothing Then lDirNames = Await RecoverUsingCmdLine(oFoldRoot)
+        If lDirNames Is Nothing Then lDirNames = Await RecoverUsingCmdLine(sFoldRoot)
 
         If lDirNames Is Nothing OrElse lDirNames.Count = 0 Then Return Nothing
 
-        Return Await RecoverChannels(oFoldRoot, lDirNames)
+        Return Await RecoverChannels(sFoldRoot, lDirNames)
 
     End Function
 
     Private Async Sub uiRepair_Click(sender As Object, e As RoutedEventArgs)
-        If Not Await pkar.DialogBoxYNAsync("Odtwarzać plik channels.json?") Then Return
+        If Not Await vb14.DialogBoxYNAsync("Odtwarzać plik channels.json?") Then Return
 
-        Dim oFoldRoot As Windows.Storage.StorageFolder = Await GetPicRootDirAsync()
-        If oFoldRoot Is Nothing Then
-            Await DialogBoxAsync("Cannot get folder for pictures")
+        ' Dim sFoldRoot As String = App.gInstaModule.GetPicRootDir()
+        Dim sFoldRoot As Windows.Storage.StorageFolder = Await GetPicRootDirAsync()
+        ' If sFoldRoot = "" Then
+        If sFoldRoot Is Nothing Then
+            Await vb14.DialogBoxAsync("Cannot get folder for pictures")
             Return
         End If
 
-        Dim kanaly As ObservableCollection(Of LocalChannel)
-        kanaly = Await TryRecoverAnyMethod(oFoldRoot)
+        Dim kanaly As ObservableCollection(Of Vblib.LocalChannel)
+        kanaly = Await TryRecoverAnyMethod(sFoldRoot)
 
         If kanaly Is Nothing Then
-            DialogBox("Sorry, ale się nie udało w żaden sposób")
+            vb14.DialogBox("Sorry, ale się nie udało w żaden sposób")
         Else
-            Await DialogBoxAsync("Odzyskałem, próbuję zapisać...")
+            Await vb14.DialogBoxAsync("Odzyskałem, próbuję zapisać... ALE NIE UMIEM!")
             _kanaly = kanaly
-            Await SaveChannelsAsync()
+            ' Await SaveChannelsAsync()
 
             uiListItems.ItemsSource = _kanaly
 

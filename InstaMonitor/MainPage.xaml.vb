@@ -1,13 +1,5 @@
 ﻿
-' 2021.10.14: w Settings (InstaFeeds.xaml) jest flyout do zmiany hasła (za często się pojawiała konieczność zmiany)
-
-'russian_barbie
-'Angelica Kenova
-
-'https://www.instagram.com/russian_barbie/
-
-' jak mozna przenosic app z UWP do WinUI - przez biblioteke, wspólną dla obu
-' https://nicksnettravels.builttoroam.com/upgrade-uwp-to-winui/
+Imports vb14 = Vblib.pkarlibmodule14
 
 Imports Windows.ApplicationModel.Background
 
@@ -30,17 +22,19 @@ Public NotInheritable Class MainPage
     ''' przepisz z wybranego channel wszystkie obrazki do _listaPickow, sortując DESC wedle iTimestamp (w pliku .json)
     ''' (sprawdzajac, czy picek istnieje na dysku)
     ''' </summary>
-    Private Async Function PrzekonwertujNaListaPickow(oChannel As LocalChannel) As Task(Of Integer)
+    Private Async Function PrzekonwertujNaListaPickow(oChannel As Vblib.LocalChannel) As Task(Of Integer)
         _listaPickow = New List(Of LocalNewPicture)
 
         If oChannel Is Nothing Then Return 0
 
-        Dim oPicki As List(Of LocalPictureData) = Await LoadPictData(oChannel, Nothing)
+        ' Dim oPicki As List(Of Vblib.LocalPictureData) = Await App.gInstaModule.LoadPictData(oChannel, False)
+        Dim oPicki As List(Of Vblib.LocalPictureData) = Await LoadPictData(oChannel, Nothing)
         If oPicki Is Nothing Then Return 0
 
-        Dim oFold As Windows.Storage.StorageFolder = Await GetChannelDir(oChannel, Nothing)
+        ' Dim sFold As String = Await App.gInstaModule.GetChannelDir(oChannel, False)
+        Dim sFold As Windows.Storage.StorageFolder = Await GetChannelDir(oChannel, Nothing)
 
-        For Each oItem As LocalPictureData In From c In oPicki Order By c.iTimestamp Descending
+        For Each oItem As Vblib.LocalPictureData In From c In oPicki Order By c.iTimestamp Descending
             Dim bBylo As Boolean = False
             For Each oJuz As LocalNewPicture In _listaPickow
                 If oJuz.oPicture.sFileName = oItem.sFileName Then
@@ -52,8 +46,10 @@ Public NotInheritable Class MainPage
             If bBylo Then Continue For
 
             ' weryfikacja istnienia pliku
-            If oFold IsNot Nothing Then
-                If Not Await oFold.FileExistsAsync(oItem.sFileName) Then Continue For
+            ' If sFold <> "" Then
+            If sFold IsNot Nothing Then
+                ' If Not IO.File.Exists(IO.Path.Combine(sFold, oItem.sFileName)) Then Continue For
+                If (Await sFold.TryGetItemAsync(oItem.sFileName)) Is Nothing Then Continue For
             End If
 
             ' 2021.02.25: dodaję linijkę z iTimestamp, by wyłapać czemu nie działa tak jak trzeba
@@ -98,17 +94,22 @@ Public NotInheritable Class MainPage
 
             ' For Each oItem In _listaPickow - poprzednia wersja, ktora robila obrazki od najstarszego!
 
-            Dim oFold As Windows.Storage.StorageFolder = Await GetChannelDir(oItem.oChannel, Nothing)
-            If oFold IsNot Nothing Then
+            ' Dim sFold As String = Await App.gInstaModule.GetChannelDir(oItem.oChannel, Nothing)
+            Dim sFold As Windows.Storage.StorageFolder = Await GetChannelDir(oItem.oChannel, Nothing)
+            ' If sFold <> "" Then
+            If sFold IsNot Nothing Then
                 ' błąd, ale nie RETURN, kontynuuj, bo może reszta będzie dobrze
 
-                Dim oFile As Windows.Storage.StorageFile = Await oFold.TryGetItemAsync(oItem.oPicture.sFileName)
-                If oFile IsNot Nothing Then
+                ' Dim sFile As String = IO.Path.Combine(sFold, oItem.oPicture.sFileName)
+                Dim sFile As Windows.Storage.StorageFile = Await sFold.GetItemAsync(oItem.oPicture.sFileName)
+                ' If IO.File.Exists(sFile) Then
+                If sFile IsNot Nothing Then
                     ' pliku może nie być - usunięty obrazek, ale nie usunięte dane z JSON
                     iPicCnt += 1
 
                     oItem.oImageSrc = New BitmapImage
-                    Dim oStream As Stream = Await oFile.OpenStreamForReadAsync
+                    ' Dim oStream As Stream = IO.File.OpenRead(sFile) ' Await oFile.OpenStreamForReadAsync
+                    Dim oStream As Stream = Await sFile.OpenStreamForReadAsync
                     ' zawisa na tym setsource
                     If oStream IsNot Nothing Then
                         Await oItem.oImageSrc.SetSourceAsync(oStream.AsRandomAccessStream)
@@ -123,10 +124,9 @@ Public NotInheritable Class MainPage
 
                     iIlePickow -= 1
                     ' i jesli wczytał wszystkie plus jeden (na wszelki wypadek), to kończ waść - szybsze przy wczytywaniu podczas kontroli co nowego
-                    If iIlePickow <0 Then Exit For
+                    If iIlePickow < 0 Then Exit For
                     ProgRingInc()
                 End If
-
             End If
 
         Next
@@ -136,16 +136,19 @@ Public NotInheritable Class MainPage
     End Function
 
     Private Async Sub Page_Loaded(sender As Object, e As RoutedEventArgs)
-        uiClockRead.IsChecked = GetSettingsBool("autoRead")
-        uiLastRun.Text = GetSettingsString("lastRun")
+        uiClockRead.GetSettingsBool("autoRead")
+        uiLastRun.GetSettingsString("lastRun")
+
+        ' App.gInstaModule.SetPicPath(Windows.Storage.KnownFolders.PicturesLibrary.Path)
 
         ProgRingInit(True, True)
 
         Await CrashMessageShowAsync()
 
 
-        If Not Await LoadChannelsAsync() Then
-            DialogBox("Empty channel list")
+        If Not App.gInstaModule.LoadChannels() Then
+            'If Not Await LoadChannelsAsync() Then
+            vb14.DialogBox("Empty channel list")
             Return
         End If
 
@@ -153,7 +156,8 @@ Public NotInheritable Class MainPage
 
         ' jesli wracam tu z RefreshWebView to gdzies pewnie bedzie  c.iNewCnt <> 0 - wtedy pokazuj tylko zmienione
         Dim bShowAll As Boolean = True
-        For Each oItem As LocalChannel In GetInstaChannelsList()
+        For Each oItem As Vblib.LocalChannel In App.gInstaModule.GetInstaChannelsList()
+            'For Each oItem As Vblib.LocalChannel In GetInstaChannelsList()
             If oItem.iNewCnt <> 0 Then
                 bShowAll = False
                 Exit For
@@ -180,11 +184,14 @@ Public NotInheritable Class MainPage
         uiMsg.Text = ""
 
         If uiFiltr.IsChecked Then
-            uiChannelsList.ItemsSource = From c In GetInstaChannelsList() Order By c.sChannel
+            uiChannelsList.ItemsSource = From c In App.gInstaModule.GetInstaChannelsList() Order By c.sChannel
+            'uiChannelsList.ItemsSource = From c In GetInstaChannelsList() Order By c.sChannel
         Else
-            uiChannelsList.ItemsSource = From c In GetInstaChannelsList() Where c.iNewCnt <> 0 Order By c.sChannel   ' c.bEnabled = True And 
+            uiChannelsList.ItemsSource = From c In App.gInstaModule.GetInstaChannelsList() Where c.iNewCnt <> 0 Order By c.sChannel   ' c.bEnabled = True And 
+            'uiChannelsList.ItemsSource = From c In GetInstaChannelsList() Where c.iNewCnt <> 0 Order By c.sChannel   ' c.bEnabled = True And 
             Dim iNewCnt As Integer = 0
-            For Each oItem As LocalChannel In _kanaly
+            For Each oItem As Vblib.LocalChannel In App.gInstaModule.GetInstaChannelsList
+                'For Each oItem As Vblib.LocalChannel In _kanaly
                 If oItem.iNewCnt > 0 Then iNewCnt += oItem.iNewCnt
             Next
             If iNewCnt = 0 AndAlso miLastNew <> 0 Then
@@ -212,7 +219,8 @@ Public NotInheritable Class MainPage
         Dim sGranica As String = DateTime.Now.AddDays(-45).ToString("yyyyMMdd")
 
 
-        For Each oChan In GetInstaChannelsList()
+        For Each oChan In App.gInstaModule.GetInstaChannelsList()
+            'For Each oChan In GetInstaChannelsList()
             ' jesli mamy pierwszy błąd zapisany
             If oChan.iNewCnt < 0 AndAlso Not String.IsNullOrEmpty(oChan.sFirstError) Then
                 ' mamy zapisane dd mm yyyy
@@ -223,9 +231,10 @@ Public NotInheritable Class MainPage
 
         If iErrors < 1 Then Return
 
-        If Not Await DialogBoxYNAsync("Disable " & iErrors & " kanałów błędnych ponad 45 dni?") Then Return
+        If Not Await vb14.DialogBoxYNAsync("Disable " & iErrors & " kanałów błędnych ponad 45 dni?") Then Return
 
-        For Each oChan In GetInstaChannelsList()
+        For Each oChan In App.gInstaModule.GetInstaChannelsList()
+            'For Each oChan In GetInstaChannelsList()
             ' jesli mamy pierwszy błąd zapisany
             If oChan.iNewCnt < 0 AndAlso Not String.IsNullOrEmpty(oChan.sFirstError) Then
                 ' mamy zapisane dd mm yyyy
@@ -234,14 +243,18 @@ Public NotInheritable Class MainPage
             End If
         Next
 
-        Await SaveChannelsAsync()
+        App.gInstaModule.SaveChannels()
+        'Await SaveChannelsAsync()
 
     End Function
+#If False Then
+    ' XAML/CS jest w katalogu Moje, jako że not-used
     Private Sub uiRefreshWebView_Click(sender As Object, e As RoutedEventArgs)
         Me.Frame.Navigate(GetType(RefreshWebView))
     End Sub
+#End If
 
-#Region "Skopiowane z Ballots, odpowiednio"
+#Region "Skopiowane z Ballots, odpowiednio - obsluga folderow"
 
     Private Async Function GetDownloadsFolder() As Task(Of Windows.Storage.StorageFolder)
         Dim oFold As Windows.Storage.StorageFolder
@@ -255,7 +268,7 @@ Public NotInheritable Class MainPage
 
     Private Async Function PickDownFolder() As Task(Of Windows.Storage.StorageFolder)
 
-        Await DialogBoxAsync("Wskaz Downloads folder")
+        Await vb14.DialogBoxAsync("Wskaz Downloads folder")
 
         Dim picker = New Windows.Storage.Pickers.FolderPicker
         picker.ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail
@@ -273,11 +286,12 @@ Public NotInheritable Class MainPage
     End Function
 #End Region
 
+#If False Then
     Private Async Sub uiRefreshFromDown_Click(sender As Object, e As RoutedEventArgs)
         ' skoro nie działa ani normalne czytanie (tylko 3 pierwsze jest ok), ani webView (czarny prostokąt), to trzeba to omijać wersją własną
 
-        If Not Await LoadChannelsAsync() Then
-            Await DialogBoxAsync("Empty channel list")
+        If Not App.gInstaModule.LoadChannels() Then
+            Await vb14.DialogBoxAsync("Empty channel list")
             Return
         End If
 
@@ -288,7 +302,7 @@ Public NotInheritable Class MainPage
         If oFoldFrom Is Nothing Then
             oFoldFrom = Await PickDownFolder()
             If oFoldFrom Is Nothing Then
-                DialogBox("No nie dam rady, coś nie tak z Downloads folder")
+                vb14.DialogBox("No nie dam rady, coś nie tak z Downloads folder")
             End If
         End If
 
@@ -296,10 +310,10 @@ Public NotInheritable Class MainPage
 
         ' iterowanie plików
         Dim oNewFiles As IReadOnlyList(Of Windows.Storage.StorageFile) = Await oFoldFrom.GetFilesAsync()
-        Dim oPicList As List(Of LocalPictureData) = Nothing
+        Dim oPicList As List(Of Vblib.LocalPictureData) = Nothing
 
         Dim sLastChann As String = ""
-        Dim oChannel As LocalChannel = Nothing
+        Dim oChannel As Vblib.LocalChannel = Nothing
         Dim bDirty As Boolean = False
         Dim oFoldTo As Windows.Storage.StorageFolder = Nothing
 
@@ -312,7 +326,7 @@ Public NotInheritable Class MainPage
                 Dim sChannel As String = oNewFile.Name.ToLower.Substring("insta.".Length)
                 Dim iInd As Integer = sChannel.IndexOf("..")
                 If iInd < 1 Then
-                    Await DialogBoxAsync("Nie ma .. w nazwie obrazka" & vbCrLf & oNewFile.Name)
+                    Await vb14.DialogBoxAsync("Nie ma .. w nazwie obrazka" & vbCrLf & oNewFile.Name)
                     Continue For
                 End If
                 sChannel = sChannel.Substring(0, iInd)
@@ -322,27 +336,27 @@ Public NotInheritable Class MainPage
                 If sChannel <> sLastChann Then
                     If sLastChann <> "" Then
                         ' zapisz plik JSON wedle oPicList
-                        Await SavePictData(oChannel, oPicList, uiMsg)
+                        Await App.gInstaModule.SavePictData(oChannel, oPicList, True)
                     End If
                     sLastChann = sChannel
 
                     ' znajdz oItem do tego
-                    oChannel = GetInstaChannelItem(sChannel)
+                    oChannel = App.gInstaModule.GetInstaChannelItem(sChannel)
                     If oChannel Is Nothing Then
-                        If Not Await DialogBoxYNAsync("Nie moge znalezc Item dla kanału " & sChannel & vbCrLf & "Dodac?") Then
+                        If Not Await vb14.DialogBoxYNAsync("Nie moge znalezc Item dla kanału " & sChannel & vbCrLf & "Dodac?") Then
                             Continue For
                         Else
                             Await TryAddChannelAsync(sChannel, uiMsg)
-                            oChannel = GetInstaChannelItem(sChannel)
+                            oChannel = App.gInstaModule.GetInstaChannelItem(sChannel)
                         End If
                     End If
 
                     ' wczytaj plik json kanalu
-                    oPicList = Await LoadPictData(oChannel, uiMsg)
-                    If oPicList Is Nothing Then oPicList = New List(Of LocalPictureData)
+                    oPicList = App.gInstaModule.LoadPictData(oChannel, True)
+                    If oPicList Is Nothing Then oPicList = New List(Of Vblib.LocalPictureData)
 
                     ' znajdz katalog do tego
-                    oFoldTo = Await GetChannelDir(oChannel, uiMsg)
+                    oFoldTo = Await App.gInstaModule.GetChannelDir(oChannel, True)
                     If oFoldTo Is Nothing Then
                         ProgRingShow(False)
                         Return
@@ -350,7 +364,7 @@ Public NotInheritable Class MainPage
                 End If
 
                 ' uzupelnij plik json
-                Dim oNew As LocalPictureData = New LocalPictureData
+                Dim oNew As New Vblib.LocalPictureData
                 oNew.sFileName = oNewFile.Name
                 oNew.iTimestamp = oNewFile.DateCreated.ToUnixTimeSeconds ' to jest wazne, bo to jest dla sort!
                 ' 1624301998 dla 2021-06-23
@@ -371,7 +385,7 @@ Public NotInheritable Class MainPage
         Next
 
         If bDirty Then
-            Await SaveChannelsAsync() ' zapisz kanały - bo zmienione jest (iNewCnt)
+            App.gInstaModule.SaveChannels() ' zapisz kanały - bo zmienione jest (iNewCnt)
         End If
 
         UpdateDisplayName()   ' wraz z licznikiem nowości
@@ -380,9 +394,9 @@ Public NotInheritable Class MainPage
 
         ProgRingShow(False)
     End Sub
+#End If
 
-
-    Private Async Function SelectChannel(oItem As LocalChannel) As Task
+    Private Async Function SelectChannel(oItem As Vblib.LocalChannel) As Task
         ProgRingShow(True)
 
         uiFullPicture.Visibility = Visibility.Collapsed
@@ -396,7 +410,8 @@ Public NotInheritable Class MainPage
 
         Await DoczytajPicki(oItem.iNewCnt)
 
-        ZrobDymkiKanalow()  ' ale to i tak nie poprawia nic... bo nie ma aktualizacji ItemsSource po zmianie dymków
+        App.gInstaModule.ZrobDymkiKanalow()  ' ale to i tak nie poprawia nic... bo nie ma aktualizacji ItemsSource po zmianie dymków
+        'ZrobDymkiKanalow()  ' ale to i tak nie poprawia nic... bo nie ma aktualizacji ItemsSource po zmianie dymków
 
         uiPicList.ItemsSource = From c In _listaPickow Where c.oImageSrc IsNot Nothing Order By c.oPicture.iTimestamp Descending Distinct
 
@@ -404,7 +419,8 @@ Public NotInheritable Class MainPage
 
         Dim iTotalNew As Integer = 0
         ' musimy ominąć iNewCnt = -1 (sygnalizacja błędu)
-        For Each oChan In From c In _kanaly Where c.iNewCnt > 0
+        For Each oChan In From c In App.gInstaModule.GetInstaChannelsList Where c.iNewCnt > 0
+            'For Each oChan In From c In _kanaly Where c.iNewCnt > 0
             iTotalNew += oChan.iNewCnt
         Next
 
@@ -421,11 +437,14 @@ Public NotInheritable Class MainPage
 
         ' usun plik
         ' 2021.01.20: zamiast IFów jest ?
-        Dim oFold As Windows.Storage.StorageFolder = Await GetChannelDir(oItem.oChannel, Nothing)
-        Dim oFile As Windows.Storage.StorageFile = Await oFold?.TryGetItemAsync(oItem.oPicture.sFileName)
-#Disable Warning BC42358 ' Because this call is not awaited, execution of the current method continues before the call is completed
-        oFile?.DeleteAsync() ' kontynuuj usuwanie sobie w tle...
-#Enable Warning BC42358 ' Because this call is not awaited, execution of the current method continues before the call is completed
+        ' Dim sFold As String = Await App.gInstaModule.GetChannelDir(oItem.oChannel, False)
+        Dim sFold As Windows.Storage.StorageFolder = Await GetChannelDir(oItem.oChannel, Nothing)
+        If sFold IsNot Nothing Then
+            Dim oFile As Windows.Storage.StorageFile = Await sFold.TryGetItemAsync(oItem.oPicture.sFileName)
+            If oFile IsNot Nothing Then Await oFile.DeleteAsync
+            ' Dim sFile As String = IO.Path.Combine(sFold, oItem.oPicture.sFileName)
+            ' IO.File.Delete(sFile)
+        End If
 
         ' znajdz następny do pokazania (2021.01.20)
         Dim oListek = From c In _listaPickow Where c.oImageSrc IsNot Nothing Order By c.oPicture.iTimestamp Descending
@@ -466,11 +485,12 @@ Public NotInheritable Class MainPage
         If uiPicDel.DataContext Is Nothing Then Return
 
         Dim oItem As LocalNewPicture = uiPicDel.DataContext
-        ClipPut(uiPicOpis.Text)
+        vb14.ClipPut(uiPicOpis.Text)
     End Sub
 
     Private Sub UpdateDisplayName()
-        For Each oItem As LocalChannel In GetInstaChannelsList()
+        For Each oItem As Vblib.LocalChannel In App.gInstaModule.GetInstaChannelsList()
+            'For Each oItem As Vblib.LocalChannel In GetInstaChannelsList()
             If oItem.iNewCnt > 0 Then
                 oItem.sDisplayName = oItem.sChannel & " (" & oItem.iNewCnt & ")"
             Else
@@ -482,30 +502,34 @@ Public NotInheritable Class MainPage
 
 #Region "Bottom Command Bar"
     Private Async Sub uiAddChannel_Click(sender As Object, e As RoutedEventArgs)
-        Dim sNewChannel As String = Await DialogBoxInputDirectAsync("Podaj nazwę kanału:")
+        Dim sNewChannel As String = Await vb14.DialogBoxInputDirectAsync("Podaj nazwę kanału:")
         If sNewChannel = "" Then Return
 
-        For Each oItem As LocalChannel In _kanaly
+        For Each oItem As Vblib.LocalChannel In App.gInstaModule.GetInstaChannelsList
+            'For Each oItem As Vblib.LocalChannel In _kanaly
             If oItem.sChannel.ToLower = sNewChannel.ToLower Then
-                DialogBox("Taki kanał już istnieje!")
+                vb14.DialogBox("Taki kanał już istnieje!")
                 Return
             End If
         Next
 
         ProgRingShow(True)
+        ' Dim sError As String = Await App.gInstaModule.TryAddChannelAsync(sNewChannel, AddressOf TBoxSetText)  ' w srodku jest zapis kanałów
         Dim sError As String = Await TryAddChannelAsync(sNewChannel, uiMsg)  ' w srodku jest zapis kanałów
         ProgRingShow(False)
         If Not sError.StartsWith("OK") Then
-            DialogBox("Error: " & sError)
+            vb14.DialogBox("Error: " & sError)
             Return
         End If
 
-        If Not Await DialogBoxYNAsync("Wczytać fotki?") Then Return
+        If Not Await vb14.DialogBoxYNAsync("Wczytać fotki?") Then Return
 
-        For Each oItem As LocalChannel In _kanaly
+        For Each oItem As Vblib.LocalChannel In App.gInstaModule.GetInstaChannelsList
+            'For Each oItem As Vblib.LocalChannel In _kanaly
             If oItem.sChannel.ToLower = sNewChannel.ToLower Then
                 ProgRingShow(True)
-                Await InstaNugetCheckNewsFromUserAsync(oItem, uiMsg)
+                ' Await App.gInstaModule.InstaNugetCheckNewsFromUserAsync(oItem, AddressOf TBoxSetText)
+                Await InstaNugetCheckNewsFromUserAsync(Me, oItem, uiMsg)
                 Await SelectChannel(oItem)
                 ProgRingShow(False)
                 Return
@@ -517,7 +541,8 @@ Public NotInheritable Class MainPage
     Private Sub uiFiltr_Click(sender As Object, e As RoutedEventArgs)
         ShowListaKanalow()
 #Disable Warning BC42358 ' Because this call is not awaited, execution of the current method continues before the call is completed
-        If uiFiltr.IsChecked Then SaveChannelsAsync()
+        If uiFiltr.IsChecked Then App.gInstaModule.SaveChannels()
+        'If uiFiltr.IsChecked Then SaveChannelsAsync()
 #Enable Warning BC42358 ' Because this call is not awaited, execution of the current method continues before the call is completed
     End Sub
 
@@ -525,34 +550,55 @@ Public NotInheritable Class MainPage
     Private Async Sub uiClockRead_Click(sender As Object, e As RoutedEventArgs)
 
         If Not Await CanRegisterTriggersAsync() Then
-            DialogBox("Background unavailable for app")
+            vb14.DialogBox("Background unavailable for app")
             Return
         End If
 
         UnregisterTriggers("InstaMonitor")  ' usuwamy istniejące - ewentualnie zarejestrujemy ponownie
 
         If uiClockRead.IsChecked Then
-            RegisterTimerTrigger("InstaMonitorTimer", GetSettingsInt("TimerInterval", 120))
+            RegisterTimerTrigger("InstaMonitorTimer", vb14.GetSettingsInt("TimerInterval"))
         End If
-        SetSettingsBool("autoRead", uiClockRead.IsChecked)
+        uiClockRead.SetSettingsBool("autoRead")
     End Sub
 
     Private Async Sub uiOpenExpl_Click(sender As Object, e As RoutedEventArgs)
+        ' Dim oFold As Windows.Storage.StorageFolder = Await Windows.Storage.StorageFolder.GetFolderFromPathAsync(App.gInstaModule.GetPicRootDir())
         Dim oFold As Windows.Storage.StorageFolder = Await GetPicRootDirAsync()
         oFold.OpenExplorer
     End Sub
     Private Sub uiSetup_Click(sender As Object, e As RoutedEventArgs)
-        Me.Frame.Navigate(GetType(InstaFeeds))
+        Me.Navigate(GetType(InstaFeeds))
     End Sub
+
+
+    Private Sub TBoxSetText(sMsg As String)
+        uiMsg.Text = sMsg
+    End Sub
+
+    Public Sub FromLibProgRingShow(bVisible As Boolean, dMax As Double)
+        Me.ProgRingShow(bVisible, False, 0, dMax)
+    End Sub
+
+    Public Sub FromLibProgRingMaxVal(iMax As Integer)
+        Me.ProgRingMaxVal(iMax)
+    End Sub
+
+    Public Sub FromLibProgRingInc()
+        Me.ProgRingInc
+    End Sub
+
 
     Private Async Sub uiRefresh_Click(sender As Object, e As RoutedEventArgs)
         'Me.Frame.Navigate(GetType(RefreshWebView))
         ProgRingShow(True)
 
         RemoveScheduledToasts()
+        RemoveCurrentToasts()
 
         'Await GetAllFeedsAsync(uiMsg)
-        Await InstaNugetRefreshAll(uiMsg)
+        ' Await App.gInstaModule.InstaNugetRefreshAll(AddressOf TBoxSetText, AddressOf FromLibProgRingShow, AddressOf FromLibProgRingMaxVal, AddressOf FromLibProgRingInc)
+        Await InstaNugetRefreshAll(Me, uiMsg)
 
         Await EwentualnieBlokujNieaktywne()
 
@@ -560,8 +606,8 @@ Public NotInheritable Class MainPage
         uiFiltr.IsChecked = False   ' tylko wedle licznika
         ShowListaKanalow()
 
-        SetSettingsDate("lastRefresh")
-        SetSettingsInt("addedChannels", 0)
+        vb14.SetSettingsCurrentDate("lastRefresh")
+        vb14.SetSettingsInt("addedChannels", 0)
 
         CreateScheduledToast()
 
@@ -574,10 +620,12 @@ Public NotInheritable Class MainPage
 #Region "lista kanałów"
     Private Async Sub uiRefreshThis_Click(sender As Object, e As RoutedEventArgs)
         Dim oMFI As MenuFlyoutItem = sender
-        Dim oItem As LocalChannel = oMFI.DataContext
+        Dim oItem As Vblib.LocalChannel = oMFI.DataContext
 
         ProgRingShow(True)
-        Dim iRet As Integer = Await InstaNugetCheckNewsFromUserAsync(oItem, uiMsg)
+
+        ' Dim iRet As Integer = Await App.gInstaModule.InstaNugetCheckNewsFromUserAsync(oItem, AddressOf TBoxSetText)
+        Dim iRet As Integer = Await InstaNugetCheckNewsFromUserAsync(Me, oItem, uiMsg)
         ' Dim iRet As Integer = Await GetInstagramFeed(oItem, True)
         If iRet < 0 Then
             oItem.iNewCnt = -1
@@ -587,7 +635,8 @@ Public NotInheritable Class MainPage
             oItem.iNewCnt = iRet
         End If
 #Disable Warning BC42358 ' Because this call is not awaited, execution of the current method continues before the call is completed
-        SaveChannelsAsync()   ' tak, bez await, niech sobie to robi w tle
+        App.gInstaModule.SaveChannels()   ' tak, bez await, niech sobie to robi w tle
+        'SaveChannelsAsync()
 #Enable Warning BC42358
         ProgRingShow(False)
 
@@ -603,34 +652,37 @@ Public NotInheritable Class MainPage
 
     Private Sub uiGoWebThis_Click(sender As Object, e As RoutedEventArgs)
         Dim oMFI As MenuFlyoutItem = sender
-        Dim oItem As LocalChannel = oMFI.DataContext
+        Dim oItem As Vblib.LocalChannel = oMFI.DataContext
 
-        Dim sUrl As String = "https://www.instagram.com/" & oItem.sChannel
-        OpenBrowser(sUrl)
+        Dim oUrl As Uri = New Uri("https://www.instagram.com/" & oItem.sChannel)
+        oUrl.OpenBrowser()
 
     End Sub
     Private Async Sub uiDisableThis_Click(sender As Object, e As RoutedEventArgs)
         Dim oMFI As MenuFlyoutItem = sender
-        Dim oItem As LocalChannel = oMFI.DataContext
-        If Not Await DialogBoxYNAsync("Zablokować kanał '" & oItem.sChannel & "' ?") Then Return
+        Dim oItem As Vblib.LocalChannel = oMFI.DataContext
+        If Not Await vb14.DialogBoxYNAsync("Zablokować kanał '" & oItem.sChannel & "' ?") Then Return
 
         oItem.bEnabled = False
-        Await SaveChannelsAsync()   ' tak, bez await, niech sobie to robi w tle
+        App.gInstaModule.SaveChannels()   ' tak, bez await, niech sobie to robi w tle
+        'SaveChannelsAsync()   ' tak, bez await, niech sobie to robi w tle
         ' ale jednak z AWAIT, jakby wylecial pozniej zanim zdąży zapisać
         ' ShowListaKanalow() - a po co? przeskakuje na początek, co jest bez sensu, a i tak na liście jest ten usunięty :)
     End Sub
     Private Async Sub uiReadDetailsThis_Click(sender As Object, e As RoutedEventArgs)
         Dim oMFI As MenuFlyoutItem = sender
-        Dim oItem As LocalChannel = oMFI.DataContext
+        Dim oItem As Vblib.LocalChannel = oMFI.DataContext
         If oItem.sBiografia <> "" OrElse oItem.sFullName <> "" Then
-            If Not Await DialogBoxYNAsync("Ale już mamy dane, na pewno odczytać ponownie?") Then Return
+            If Not Await vb14.DialogBoxYNAsync("Ale już mamy dane, na pewno odczytać ponownie?") Then Return
         End If
 
-        If Not Await InstaNugetLoginAsync(uiMsg) Then Return
+        If Not Await App.gInstaModule.InstaNugetLoginAsync(AddressOf TBoxSetText) Then Return
+        ' If Not Await InstaNugetLoginAsync(uiMsg) Then Return
 
-        Dim user As JSONinstaUser = Await InstaNugetGetUserDataAsync(oItem.sChannel)
+        ' Dim user As Vblib.JSONinstaUser = Await App.gInstaModule.InstaNugetGetUserDataAsync(oItem.sChannel)
+        Dim user As Vblib.JSONinstaUser = Await App.gInstaModule.InstaNugetGetUserDataAsync(oItem.sChannel)
         If user Is Nothing Then
-            DialogBox("Nie mogę sprawdzić danych kanału, może go już nie ma?")
+            vb14.DialogBox("Nie mogę sprawdzić danych kanału, może go już nie ma?")
             Return
         End If
 
@@ -646,27 +698,28 @@ Public NotInheritable Class MainPage
         End If
 
         If sZmieniono = "" Then
-            DialogBox("Nic się nie zmieniło...")
+            vb14.DialogBox("Nic się nie zmieniło...")
             Return
         End If
 
-        DialogBox("Zmiana: " & sZmieniono)
-        Await SaveChannelsAsync()
+        vb14.DialogBox("Zmiana: " & sZmieniono)
+        App.gInstaModule.SaveChannels()
+        'Await SaveChannelsAsync()
 
     End Sub
 
     Private Sub uiShowDetailsThis_Click(sender As Object, e As RoutedEventArgs)
         Dim oMFI As MenuFlyoutItem = sender
-        Dim oItem As LocalChannel = oMFI.DataContext
+        Dim oItem As Vblib.LocalChannel = oMFI.DataContext
         Dim sMsg As String = oItem.sChannel & vbCrLf & vbCrLf &
             oItem.sFullName & vbCrLf &
             "Bio:" & vbCrLf & oItem.sBiografia
-        DialogBox(sMsg)
+        vb14.DialogBox(sMsg)
     End Sub
 
     Private Async Sub uiChannel_Click(sender As Object, e As TappedRoutedEventArgs)
         Dim oMFI As Grid = sender
-        Dim oItem As LocalChannel = oMFI.DataContext
+        Dim oItem As Vblib.LocalChannel = oMFI.DataContext
 
         Await SelectChannel(oItem)
     End Sub
@@ -675,6 +728,7 @@ Public NotInheritable Class MainPage
 #End Region
 
 #Region "lista obrazków"
+
     Private Sub uiPicture_Click(sender As Object, e As TappedRoutedEventArgs)
         Dim oMFI As Grid = sender
         Dim oItem As LocalNewPicture = oMFI.DataContext
@@ -684,14 +738,39 @@ Public NotInheritable Class MainPage
         uiPicDel.IsEnabled = True
         uiPicDel.DataContext = oItem
         _lastPicShowed = oItem
+        ZmianaRozmiaruImg()
     End Sub
 
 #End Region
 
 #Region "obrazek"
     Private Sub uiPicCopyOpis_Tapped(sender As Object, e As RoutedEventArgs)
-        ClipPut(_lastPicShowed.oPicture.sCaption & " (" & _lastPicShowed.oPicture.sPlace & ")")
+        vb14.ClipPut(_lastPicShowed.oPicture.sCaption & " (" & _lastPicShowed.oPicture.sPlace & ")")
     End Sub
+
+    Private Sub ZmianaRozmiaruImg()
+        If uiFullPicture.Stretch = Stretch.None Then
+            uiFullPicture.Width = _lastPicShowed.oImageSrc.PixelWidth
+            uiFullPicture.Height = _lastPicShowed.oImageSrc.PixelHeight
+        Else
+
+            If _lastPicShowed.oImageSrc.PixelWidth < uiMainPicScroll.ViewportWidth And
+                _lastPicShowed.oImageSrc.PixelHeight < uiMainPicScroll.ViewportHeight Then
+                uiFullPicture.Width = _lastPicShowed.oImageSrc.PixelWidth
+                uiFullPicture.Height = _lastPicShowed.oImageSrc.PixelHeight
+            Else
+                Dim dScaleX As Double = _lastPicShowed.oImageSrc.PixelWidth / uiMainPicScroll.ViewportWidth
+                Dim dScaleY As Double = _lastPicShowed.oImageSrc.PixelHeight / uiMainPicScroll.ViewportHeight
+
+                Dim dDesiredScale As Double = Math.Max(dScaleX, dScaleY)
+                uiFullPicture.Width = _lastPicShowed.oImageSrc.PixelWidth / dDesiredScale
+                uiFullPicture.Height = _lastPicShowed.oImageSrc.PixelHeight / dDesiredScale
+
+            End If
+
+        End If
+    End Sub
+
     Private Sub uiPic_Tapped(sender As Object, e As RoutedEventArgs)
         Dim oResize As Stretch = uiFullPicture.Stretch
         Select Case oResize
@@ -701,6 +780,7 @@ Public NotInheritable Class MainPage
                 uiFullPicture.Stretch = Stretch.Uniform
         End Select
 
+        ZmianaRozmiaruImg()
     End Sub
     Private Sub uiPicDelFromMenu_Click(sender As Object, e As RoutedEventArgs)
 
@@ -710,14 +790,15 @@ Public NotInheritable Class MainPage
         If uiPicDel.DataContext Is Nothing Then Return
 
         Dim oItem As LocalNewPicture = uiPicDel.DataContext
-        ClipPut((Await GetPicRootDirAsync()).Path & "\" & oItem.oChannel.sDirName & "\" & oItem.oPicture.sFileName)
+        ' vb14.ClipPut(Await App.gInstaModule.GetChannelDir(oItem.oChannel, False) & "\" & oItem.oPicture.sFileName)
+        vb14.ClipPut((Await GetPicRootDirAsync()).Path & "\" & oItem.oChannel.sDirName & "\" & oItem.oPicture.sFileName)
     End Sub
     Private Sub uiRotateAntiClock_Click(sender As Object, e As RoutedEventArgs)
         'If uiPicDel.DataContext Is Nothing Then Return
 
         'Dim oBmp As BitmapImage = uiPicDel.DataContext.oImageSrc
 
-        DialogBox("jeszcze nie umiem obracać dziewczynek")
+        vb14.DialogBox("jeszcze nie umiem obracać dziewczynek")
 
     End Sub
     Private Sub uiRotateClock_Click(sender As Object, e As RoutedEventArgs)
@@ -725,7 +806,7 @@ Public NotInheritable Class MainPage
 
         'Dim oBmp As BitmapImage = uiPicDel.DataContext.oImageSrc
 
-        DialogBox("jeszcze nie umiem obracać dziewczynek")
+        vb14.DialogBox("jeszcze nie umiem obracać dziewczynek")
 
     End Sub
 

@@ -1,0 +1,20 @@
+﻿
+2022.04.29:
+* poprawka przy wywołaniu - bo nie zaczynało nawet ściągać
+' If Not Await App.gInstaModule.InstaNugetLoginAsync(Sub(x) oTB.Text = x) Then Return -1
+
+2022.04.22:
+* przywracam większą część instamodule w wersji nie VBlib
+
+2022.04.21:
+* dodałem VBlib, przeniosłem tam całość instamodule, ale niestety: PictureLibrary.Path (i głębiej) nie dostaje się do tych plików
+
+' 2021.10.14: w Settings (InstaFeeds.xaml) jest flyout do zmiany hasła (za często się pojawiała konieczność zmiany)
+
+'russian_barbie
+'Angelica Kenova
+
+'https://www.instagram.com/russian_barbie/
+
+' jak mozna przenosic app z UWP do WinUI - przez biblioteke, wspólną dla obu
+' https://nicksnettravels.builttoroam.com/upgrade-uwp-to-winui/

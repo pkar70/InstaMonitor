@@ -73,8 +73,10 @@
                             <MenuFlyoutItem Text="copy" Click="uiCopyOpis_Click" />
                         </MenuFlyout>
                     </TextBlock.ContextFlyout>
-                    </TextBlock> 
-                <Image Grid.Row="3" Name="uiFullPicture" Tapped="uiPic_Tapped" >
+                    </TextBlock>
+                <ScrollViewer Grid.Row="3" Grid.Column="0" Name="uiMainPicScroll" HorizontalContentAlignment="Center" >
+                    <!-- ZoomMode="Enabled" -->
+                    <Image Name="uiFullPicture" Tapped="uiPic_Tapped" VerticalAlignment="Center" HorizontalAlignment="Center" >
                     <Image.ContextFlyout>
                         <MenuFlyout>
                             <MenuFlyoutItem Text="opis do clip" Click="uiPicCopyOpis_Tapped" />
@@ -86,6 +88,7 @@
                         </MenuFlyout>
                     </Image.ContextFlyout>
                 </Image>
+                    </ScrollViewer> 
                 <Button Grid.Row="3" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,10" Name="uiPicDel" Click="uiPicDel_Click" IsEnabled="false">
                 <SymbolIcon Symbol="Delete" />
             </Button>
@@ -119,7 +122,7 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <Image Source="{Binding oImageSrc, Mode=OneWay }" Width="80" ToolTipService.ToolTip="{Binding sDymek, Mode=OneWay }" />
+                                <Image Source="{Binding oImageSrc, Mode=OneWay }" Height="80" ToolTipService.ToolTip="{Binding sDymek, Mode=OneWay }" />
                                 <TextBlock Grid.Row="1"  Text="{Binding sData, Mode=OneWay }" />
                             </Grid>
                     </DataTemplate>

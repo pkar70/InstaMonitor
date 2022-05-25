@@ -11,7 +11,7 @@
   <Identity
     Name="ce4111e6-6488-4c7d-bb3b-fd3e95e26c42"
     Publisher="CN=lokalne"
-    Version="1.2105.0.0" />
+    Version="2.2204.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="ce4111e6-6488-4c7d-bb3b-fd3e95e26c42" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
