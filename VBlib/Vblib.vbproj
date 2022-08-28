@@ -4,6 +4,7 @@
     <RootNamespace>Vblib</RootNamespace>
     <TargetFramework>netstandard2.0</TargetFramework>
     <AssemblyName>Vblib</AssemblyName>
+    <NeutralLanguage>en</NeutralLanguage>
   </PropertyGroup>
 
   <ItemGroup>
